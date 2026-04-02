@@ -501,52 +501,109 @@ function totalPoints() {
   return t;
 }
 
+// Convert raw room scores to 4-3-2-1 placement points
+function calcPlacementPoints() {
+  const houses = ['foggo','tolley','smart','elliott'];
+  const totals = { foggo: 0, tolley: 0, smart: 0, elliott: 0 };
+  const roomPlacements = [];
+
+  ROOMS.forEach(r => {
+    const scores = {};
+    let anyPoints = false;
+    houses.forEach(h => {
+      scores[h] = state.points[`${r.id}-${h}`] || 0;
+      if (scores[h] > 0) anyPoints = true;
+    });
+
+    if (!anyPoints) {
+      roomPlacements.push({ room: r, placements: null, scores: scores });
+      return;
+    }
+
+    // Sort houses by score descending
+    const sorted = houses.map(h => ({ house: h, score: scores[h] }))
+      .sort((a, b) => b.score - a.score);
+
+    // Assign 4-3-2-1 with ties sharing the average
+    const points = [4, 3, 2, 1];
+    const placements = {};
+    let i = 0;
+    while (i < 4) {
+      let j = i;
+      while (j < 3 && sorted[j + 1].score === sorted[j].score) j++;
+      let avg = 0;
+      for (let k = i; k <= j; k++) avg += points[k];
+      avg = avg / (j - i + 1);
+      for (let k = i; k <= j; k++) {
+        placements[sorted[k].house] = avg;
+        totals[sorted[k].house] += avg;
+      }
+      i = j + 1;
+    }
+
+    roomPlacements.push({ room: r, placements, scores });
+  });
+
+  return { totals, roomPlacements };
+}
+
+function fmtNum(n) {
+  return Number.isInteger(n) ? n : n.toFixed(1);
+}
+
 function showReview() {
   const h = HOUSES[state.house];
   const caps = CAPTAINS[state.house];
   const checkedNames = state.checkedCaptains.map(i => caps[i].name);
+  const { totals, roomPlacements } = calcPlacementPoints();
+  const houses = ['foggo','tolley','smart','elliott'];
 
-  let html = '';
+  let htm = '';
 
-  html += `<div class="review-house-totals">`;
-  ['foggo','tolley','smart','elliott'].forEach(hk => {
-    const ht = houseTotal(hk);
-    html += `<div class="review-house-total" style="border-color:${HOUSES[hk].color}30">
+  // House totals — 4-3-2-1 placement totals
+  htm += `<div class="review-house-totals">`;
+  houses.forEach(hk => {
+    htm += `<div class="review-house-total" style="border-color:${HOUSES[hk].color}30">
       <div class="rht-name" style="color:${HOUSES[hk].color}">${HOUSES[hk].name}</div>
-      <div class="rht-num" style="color:${HOUSES[hk].color}">${ht}</div>
+      <div class="rht-num" style="color:${HOUSES[hk].color}">${fmtNum(totals[hk])}</div>
     </div>`;
   });
-  html += `</div>`;
+  htm += `</div>`;
 
-  html += `<div class="grand-total-box">
-    <div class="gt-label">GRAND TOTAL</div>
-    <div class="gt-num">${totalPoints()} pts</div>
-  </div>`;
+  htm += `<div style="text-align:center;font-size:0.8rem;color:rgba(255,255,255,0.5);margin-bottom:20px;">Placement scoring: 1st = 4 pts, 2nd = 3 pts, 3rd = 2 pts, 4th = 1 pt</div>`;
 
-  html += `<div class="review-section-title">&#128203; Collectors (${h.name})</div>`;
-  html += `<div class="collectors-box">`;
+  // Collectors
+  htm += `<div class="review-section-title">&#128203; Collectors (${h.name})</div>`;
+  htm += `<div class="collectors-box">`;
   checkedNames.forEach(name => {
-    html += `<span class="collector-tag">\u2713 ${name}</span>`;
+    htm += `<span class="collector-tag">\u2713 ${name}</span>`;
   });
-  html += `</div>`;
+  htm += `</div>`;
 
-  html += `<div class="review-section-title">&#127979; Room Breakdown</div>`;
-  ROOMS.forEach(r => {
-    let roomTotal = 0;
+  // Room breakdown — raw scores with placement in brackets
+  htm += `<div class="review-section-title">&#127979; Room Breakdown (raw scores)</div>`;
+  roomPlacements.forEach(({ room, placements, scores }) => {
+    if (!placements) {
+      htm += `<div class="review-row" style="opacity:0.4">
+        <span>${room.name}</span>
+        <span class="room-pts">-</span>
+      </div>`;
+      return;
+    }
     let details = [];
-    ['foggo','tolley','smart','elliott'].forEach(hk => {
-      const v = state.points[`${r.id}-${hk}`] || 0;
-      roomTotal += v;
-      if (v > 0) details.push(`<span style="color:${HOUSES[hk].color}">${HOUSES[hk].name[0]}:${v}</span>`);
+    houses.forEach(hk => {
+      const raw = scores[hk];
+      const place = placements[hk];
+      const opacity = raw > 0 ? '' : 'opacity:0.4;';
+      details.push(`<span style="color:${HOUSES[hk].color};${opacity}">${HOUSES[hk].name[0]}:${raw}</span>`);
     });
-    const opacity = roomTotal === 0 ? 'opacity:0.4' : '';
-    html += `<div class="review-row" style="${opacity}">
-      <span>${r.name}</span>
-      <span class="room-pts">${details.length ? details.join(' ') : '-'}</span>
+    htm += `<div class="review-row">
+      <span>${room.name}</span>
+      <span class="room-pts">${details.join(' ')}</span>
     </div>`;
   });
 
-  document.getElementById('review-body').innerHTML = html;
+  document.getElementById('review-body').innerHTML = htm;
   goTo('screen-review');
 }
 
@@ -563,8 +620,7 @@ function openEmailModal() {
   body += `Collected by (${h.name}): ${checkedNames.join(', ')}\n\n`;
   body += `PLACEMENT TOTALS (4-3-2-1 system):\n`;
   houses.forEach(hk => {
-    const t = totals[hk];
-    body += `  ${HOUSES[hk].name}: ${Number.isInteger(t) ? t : t.toFixed(1)} pts\n`;
+    body += `  ${HOUSES[hk].name}: ${fmtNum(totals[hk])} pts\n`;
   });
   body += `\nRAW SCORES BY ROOM:\n`;
   roomPlacements.forEach(({ room, placements, scores }) => {
@@ -585,12 +641,10 @@ function closeEmailModal() {
 }
 
 // ── EmailJS Configuration ──
-// To set up: 1) Sign up at emailjs.com  2) Add your email service  3) Create a template
-// Template variables: {{subject}}, {{message}}, {{to_email}}
 const EMAILJS_CONFIG = {
-  publicKey: 'kxXi_jW2l1rXS8VFZ',      // Replace with your EmailJS public key
-  serviceId: 'service_eg3m9ya',      // Replace with your EmailJS service ID
-  templateId: 'template_igww27g',    // Replace with your EmailJS template ID
+  publicKey: 'kxXi_jW2l1rXS8VFZ',
+  serviceId: 'service_eg3m9ya',
+  templateId: 'template_igww27g',
   recipients: 'Daniel.botten315@schools.sa.edu.au'
 };
 
@@ -612,18 +666,27 @@ async function sendEmail() {
     closeEmailModal();
     showSuccess();
   } catch (err) {
-    console.error(err);
+    console.error('EmailJS error:', err);
     sendBtn.disabled = false;
     sendBtn.textContent = 'Send Email';
-    alert('Could not send email. Check your connection and try again.\n\n' + (err.text || err.message || err));
+    alert('Could not send email.\n\nError: ' + (err.text || err.message || JSON.stringify(err)) + '\n\nPlease check your EmailJS template has variables: {{subject}}, {{message}}, {{to_email}}');
   }
 }
 
 function showSuccess() {
   const h = HOUSES[state.house];
+  const { totals } = calcPlacementPoints();
+  const houses = ['foggo','tolley','smart','elliott'];
+
+  document.getElementById('success-icon').textContent = '\uD83C\uDFC6';
   document.getElementById('success-title').style.color = h.color;
-  document.getElementById('success-title').textContent = h.name + ' \u2014 Done!';
-  document.getElementById('success-sub').textContent = totalPoints() + ' points submitted and emailed successfully.';
+  document.getElementById('success-title').textContent = 'Great Job, ' + h.name + '!';
+
+  let summary = 'Points submitted and emailed successfully.\n\n';
+  houses.forEach(hk => {
+    summary += HOUSES[hk].name + ': ' + fmtNum(totals[hk]) + ' pts  ';
+  });
+  document.getElementById('success-sub').textContent = summary;
   goTo('screen-success');
 }
 
