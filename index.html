@@ -320,10 +320,9 @@
 <div class="modal-overlay" id="email-modal">
   <div class="modal">
     <h3>&#128231; Send Results by Email</h3>
-    <p>Review the summary below, then hit Send to email the results to Daniel and Kyriacos.</p>
-    <!-- Recipients hardcoded: Daniel & Kyriacos -->
-    <input type="text" id="email-subject" placeholder="Email subject" />
-    <textarea id="email-body" placeholder="Additional notes (optional)"></textarea>
+    <p>This will email the house points summary to Mr Botten and Mr K.</p>
+    <input type="hidden" id="email-subject" />
+    <textarea id="email-body" style="display:none;"></textarea>
     <div class="modal-btns">
       <button class="modal-cancel" onclick="closeEmailModal()">Cancel</button>
       <button class="modal-send" id="modal-send-btn" onclick="sendEmail()">Send Email</button>
