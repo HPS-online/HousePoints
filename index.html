@@ -644,7 +644,7 @@ const EMAILJS_CONFIG = {
   publicKey: 'kxXi_jW2l1rXS8VFZ',
   serviceId: 'service_eg3m9ya',
   templateId: 'template_igww27g',
-  recipients: 'Daniel.botten315@schools.sa.edu.au'
+  recipients: 'Daniel.botten315@schools.sa.edu.au,Kyriacos.Psalios691@schools.sa.edu.au'
 };
 
 async function sendEmail() {
@@ -674,18 +674,14 @@ async function sendEmail() {
 
 function showSuccess() {
   const h = HOUSES[state.house];
-  const { totals } = calcPlacementPoints();
-  const houses = ['foggo','tolley','smart','elliott'];
+  const caps = CAPTAINS[state.house];
+  const checkedNames = state.checkedCaptains.map(i => caps[i].name);
 
   document.getElementById('success-icon').textContent = '\uD83C\uDFC6';
   document.getElementById('success-title').style.color = h.color;
-  document.getElementById('success-title').textContent = 'Great Job, ' + h.name + '!';
+  document.getElementById('success-title').textContent = 'Great Job, ' + checkedNames.join(' & ') + '!';
 
-  let summary = 'Points submitted and emailed successfully.\n\n';
-  houses.forEach(hk => {
-    summary += HOUSES[hk].name + ': ' + fmtNum(totals[hk]) + ' pts  ';
-  });
-  document.getElementById('success-sub').textContent = summary;
+  document.getElementById('success-sub').textContent = 'Points submitted and emailed to Mr Botten and Mr K.';
   goTo('screen-success');
 }
 
